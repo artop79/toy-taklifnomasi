@@ -1,0 +1,9 @@
+{
+  "name": "toy-taklifnomasi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Muhammadmurod va Mehribonu — to‘y taklifnomasi",
+  "engines": {
+    "node": ">=18"
+  }
+}
