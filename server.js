@@ -12,7 +12,8 @@ const TYPES = {
   ".woff2": "font/woff2", ".ico": "image/x-icon", ".txt": "text/plain; charset=utf-8",
 };
 const PUBLIC_DIRS = ["img", "fonts"];
-const PUBLIC_FILES = ["index.html", "og.jpg"];
+const PUBLIC_FILES = ["index.html", "og.jpg", "og-mehribonu.jpg"];
+const PAGES = { "mehribonu": "mehribonu.html" }; // /mehribonu → отдельное приглашение
 
 // --- simple per-IP rate limit for the form: 8 submissions / 10 minutes
 const hits = new Map();
@@ -55,8 +56,10 @@ http.createServer((req, res) => {
   if (url.pathname === "/health") return res.status(200).json({ ok: true });
 
   let rel = decodeURIComponent(url.pathname).replace(/^\/+/, "") || "index.html";
+  if (rel.endsWith("/") && PAGES[rel.slice(0, -1)]) { res.writeHead(301, { Location: "/" + rel.slice(0, -1) }); return res.end(); }
+  if (PAGES[rel]) rel = PAGES[rel];
   const top = rel.split("/")[0];
-  if (!(PUBLIC_FILES.includes(rel) || (PUBLIC_DIRS.includes(top) && rel.split("/").length === 2))) rel = "index.html";
+  if (!(PUBLIC_FILES.includes(rel) || Object.values(PAGES).includes(rel) || (PUBLIC_DIRS.includes(top) && rel.split("/").length === 2))) rel = "index.html";
   const file = path.join(ROOT, rel);
   if (!file.startsWith(ROOT)) return res.status(400).end();
 

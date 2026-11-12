@@ -190,7 +190,7 @@ body{background:#eed4c6;font-family:var(--serif);color:var(--ink);touch-action:n
 @keyframes doorsIn{from{opacity:0;transform:scale(1.035);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
 #loader{position:absolute;inset:0;z-index:45;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
   background:radial-gradient(ellipse 140% 70% at 50% 45%,#f6e5db 0%,#efd5c7 70%,#eed4c6 100%);transition:opacity .9s ease,visibility 0s .9s}
-#loader.done{opacity:0;visibility:hidden}
+#loader.done{opacity:0;visibility:hidden;pointer-events:none}
 #loader svg{width:74px;height:74px;overflow:visible;animation:ldspin 2.4s linear infinite}
 #loader .tr{fill:none;stroke:rgba(122,80,62,.16);stroke-width:1.2}
 #loader .ar{fill:none;stroke:#8a6a5b;stroke-width:1.6;stroke-linecap:round;stroke-dasharray:1 1;stroke-dashoffset:.94;transition:stroke-dashoffset .5s ease}
@@ -319,7 +319,7 @@ body{background:#eed4c6;font-family:var(--serif);color:var(--ink);touch-action:n
     <div class="amp it" style="--d:3">va</div>
     <div class="names emb it bn" data-k="bride"></div>
     <div class="orn it" style="--d:5"><i></i></div>
-    <div class="cap it" style="--d:6">to‘yimizga taklif etamiz</div>
+    <div class="cap it" style="--d:6" data-k="inviteLine"></div>
    </div>
    <!-- 2 invitation -->
    <div class="screen">
@@ -366,7 +366,7 @@ body{background:#eed4c6;font-family:var(--serif);color:var(--ink);touch-action:n
    </div>
    <!-- 5 countdown -->
    <div class="screen">
-    <div class="cap it" style="--d:0">to‘yimizgacha qoldi</div>
+    <div class="cap it" style="--d:0" data-k="countdownLine"></div>
     <div class="orn it" style="--d:0"><i></i></div>
     <div class="big emb it" style="--d:1" id="cdD">0</div>
     <div class="cap it" style="--d:1;margin-top:4px" id="cdDl">kun</div>
@@ -472,6 +472,11 @@ const CONFIG = {
   rsvpEndpoint: "/api/rsvp",   // адрес приёма ответов (на Vercel: "/api/rsvp")
   telegramBot: "",           // запасной вариант: username бота без @ (если нет rsvpEndpoint)
   closing: "Bu quvonchli kunni biz bilan baham ko‘rganingiz uchun rahmat.",
+  inviteLine: "to‘yimizga taklif etamiz",
+  countdownLine: "to‘yimizgacha qoldi",
+  pageTitle: "Muhammadmurod va Mehribonu — to‘y taklifnomasi",
+  askSide: true,              // спрашивать «Kuyov / Kelin tomoni»
+  eventId: "nikoh",           // метка мероприятия в сообщении бота
 };
 /* ========================================================= */
 
@@ -485,7 +490,14 @@ const V={...CONFIG,day:pad(L.getDate()),month:MONTHS[L.getMonth()].toUpperCase()
   weekday:DAYS[L.getDay()].toUpperCase(),time:`${pad(L.getHours())}:${pad(L.getMinutes())}`,
   dateLine:`${L.getFullYear()}-yil ${L.getDate()}-${MONTHS[L.getMonth()]}`};
 document.querySelectorAll("[data-k]").forEach(e=>e.textContent=V[e.dataset.k]??"");
-document.title=`${CONFIG.groom} va ${CONFIG.bride} — to‘y taklifnomasi`;
+document.title=CONFIG.pageTitle||`${CONFIG.groom} va ${CONFIG.bride} — to‘y taklifnomasi`;
+// single-name invitation (e.g. bride's own celebration): drop the groom and the "va"
+if(!CONFIG.groom){
+ document.querySelectorAll(".names.gn,.amp").forEach(e=>e.remove());
+ document.querySelectorAll(".h-names").forEach(h=>{h.innerHTML=`<span>${CONFIG.bride}</span>`});
+ const bn=document.querySelector(".names.bn");if(bn){bn.classList.remove("bn");bn.style.setProperty("--d","1")}
+}
+if(CONFIG.askSide===false){const sd=document.querySelector(".side");if(sd)sd.parentElement.remove()}
 const q=encodeURIComponent(CONFIG.mapQuery||CONFIG.venueAddress);
 gmap.href=CONFIG.mapUrl||`https://yandex.uz/maps/?text=${q}`;
 ymap.href=`https://www.google.com/maps/search/?api=1&query=${q}`;
@@ -593,8 +605,8 @@ function showErr(t){errEl.textContent=t;errEl.style.display=t?"block":"none"}
 form.querySelectorAll("input[name=side]").forEach(r=>r.onchange=()=>showErr(""));
 fname.addEventListener("input",()=>showErr(""));
 send.addEventListener("click",e=>{
- const side=form.side.value,name=fname.value.trim().replace(/\s+/g," ");
- if(!side){e.preventDefault();showErr("Iltimos, kim tomonidan mehmon ekaningizni tanlang");
+ const side=form.side?form.side.value:"",name=fname.value.trim().replace(/\s+/g," ");
+ if(CONFIG.askSide!==false&&!side){e.preventDefault();showErr("Iltimos, kim tomonidan mehmon ekaningizni tanlang");
    const sd=form.querySelector(".side");sd.classList.remove("shake");void sd.offsetWidth;sd.classList.add("shake");return}
  if(name.length<2){e.preventDefault();showErr("Iltimos, ism va familiyangizni kiriting");fname.focus();return}
  if(CONFIG.rsvpEndpoint&&!CONFIG.rsvpEndpoint.startsWith("__")){e.preventDefault();postRsvp(side,name);return}
@@ -610,7 +622,7 @@ async function postRsvp(side,name){
  const label=send.lastChild.textContent;send.lastChild.textContent="Yuborilmoqda…";send.style.opacity=".7";
  try{
   const r=await fetch(CONFIG.rsvpEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({side,name,website:document.getElementById("hp").value})});
+    body:JSON.stringify({side:side||"",name,event:CONFIG.eventId||"",website:document.getElementById("hp").value})});
   const d=await r.json().catch(()=>({}));
   if(!r.ok||!d.ok)throw new Error(d.error||r.status);
   document.getElementById("sentText").innerHTML=`Rahmat, <b>${name.replace(/[<>&]/g,"")}</b>! Javobingiz qabul qilindi ✅<br>Sizni ${V.dateLine.replace(/^\d+-yil /,"")} kuni soat ${V.time} da kutamiz!`;
